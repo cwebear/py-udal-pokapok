@@ -1,9 +1,25 @@
+import platform
 import warnings
 
 import numpy as np
 import xarray as xr
 import pandas as pd
 import dask.bag as db
+
+
+def _platform_xarray_engine():
+    """
+    Select the right xarray engine for the current platform.
+
+    On Windows, the default engine does not work and loading an Argo netCDF file
+    results in an exception. This function checks the current platform and
+    returns 'scipy' on Windows, which seems to work properly. It does nothing on
+    other platforms.
+    """
+    if platform.system() == 'Windows':
+        return 'scipy'
+    else:
+        return None
 
 
 # -------- COMPUTE MAX DIMS --------
@@ -45,12 +61,12 @@ def identify_non_gen_vars(lsls):
 def get_dims_info(args):
     """ Get Argo profile Vertical dimension name and size """
     ds_name, dim_name = args
-    ds = xr.open_dataset(ds_name)
+    ds = xr.open_dataset(ds_name, engine=_platform_xarray_engine())
     return dim_name, ds.sizes[dim_name]
 
 
 def dims_info(ds_name):
-    dims = list(dict(xr.open_dataset(ds_name).sizes).keys())
+    dims = list(dict(xr.open_dataset(ds_name, engine=_platform_xarray_engine()).sizes).keys())
     return dims
 
 
@@ -132,7 +148,7 @@ def concat_2nd(args):
     les unes apres les autreqs pour eviter les erreurs de merge """
     ds_name, max_n_levels, z_axis, undesirable_dimensions = args
     # initiate ds and patch ds
-    ds = xr.open_dataset(ds_name)
+    ds = xr.open_dataset(ds_name, engine=_platform_xarray_engine())
 
     # remove vars concerned by the undesirable dimensions
     if undesirable_dimensions != None :
@@ -202,7 +218,7 @@ def extract_meta(dss):
 def include_meta(meta_file, aggregated_dataset):
     """ adding additional information only present in the meta file """
     if meta_file:
-        ds_meta = xr.open_dataset(meta_file)
+        ds_meta = xr.open_dataset(meta_file, engine=_platform_xarray_engine())
         try:
             launch_date = np.array([ds_meta["LAUNCH_DATE"].astype(str).data])[0].strip()
             aggregated_dataset.attrs["launch_date"] = str(pd.to_datetime(launch_date, format='%Y%m%d%H%M%S'))
