@@ -15,16 +15,20 @@ from ..result import Result
 from .data import cat_datasets
 from .types import FloatMode, FloatType
 
+import logging
+# Get the logger for the library (it will use the root logger by default)
+logger = logging.getLogger("qcv_ingester_log")
+
 
 localBrokerQueryNames: list[QueryName] = [
     'urn:pokapok:udal:argo:meta',
     'urn:pokapok:udal:argo:data',
+    'urn:pokapok:udal:argo:files',
 ]
 
 
 localBrokerQueries: dict[QueryName, NamedQueryInfo] = \
     { k: v for k, v in QUERY_REGISTRY.items() if k in localBrokerQueryNames }
-
 
 ARGO_URLS = [
     'https://data-argo.ifremer.fr',
@@ -72,7 +76,7 @@ class ArgoBroker(Broker):
     @staticmethod
     def _argo_float_mode_type_re(float_mode: FloatMode|None, float_type: FloatType|list[FloatType]|None) -> str:
         # mode
-        if float_mode == None:
+        if float_mode == None or float_mode.lower() == "none" or float_mode.lower() == "all":
             mode = _re_enum_options(FloatMode)
         else:
             mode = float_mode.value
@@ -107,6 +111,30 @@ class ArgoBroker(Broker):
         else:
             d = ''
         return f'.*/{mt}([0-9]*)_([0-9]*){d}\\.nc$'
+        
+    def _find_the_dac(self, url, float):
+        good_dac = None
+        
+        for dac in ["aoml", "bodc", "coriolis", "csio", "csiro", "incois", "jma" ,"kma", "kordi", "meds", "nmdis"]:         
+            dac_url = f"{url}/{dac}"
+            response = requests.get(dac_url)  
+    
+            if response.status_code != 200:
+                logger.error(f"Error: Could not access {dac_url}")
+                return []
+
+            soup = BeautifulSoup(response.text, 'html.parser')        
+            # Find all links in the directory listing
+            hrefs = [a['href'] for a in soup.find_all('a')]
+            
+            if f"{float}/" in hrefs:
+                good_dac = dac
+                break
+
+        if good_dac:
+            return good_dac
+        else:
+            raise KeyError("no corresponding dac found --> exiting")
 
     def _web_file_urls(self, url: str) -> list[str]:
         # TODO Error handling.
@@ -180,6 +208,65 @@ class ArgoBroker(Broker):
         results = cat_datasets([all_files])
         return results
 
+
+    def _execute_argo_files(self, params: dict[str, Any]):
+        
+        # section = float mode
+        float_mode = params.get('float_mode')
+        
+        # section = float type
+        float_type = params.get('float_type')
+        
+        # section = float
+        float = params.get('float')
+        if float == None:
+            raise Exception('missing float argument')
+        
+        # section = dac
+        dac = params.get('dac')
+        
+        if dac :
+            pass
+        elif dac == "" or not dac:
+            dac = self._find_the_dac(f"{self._url}/dac", float)
+        else :
+            raise Exception('missing dac argument, impossible to get from server...')
+        
+        # section descending_cycles
+        descending_cycles = params.get('descending_cycles')
+        if descending_cycles == None:
+            descending_cycles = True
+            
+        argo_file_urls = self._filter_argo_float_files(float_mode, float_type, descending_cycles, self._file_urls(dac, float))
+        meta_file_urls = self._meta_file_urls(dac, float)
+
+        all_files = []
+        
+        if params.get('bypass_out_arch_building'):       
+            profile_path=""
+            meta_path=""
+        else:
+            meta_path = Path('argo', 'dac', dac, float)
+            profile_path = Path('argo', 'dac', dac, float, 'profiles')
+            
+        
+        with Directory(self._config.cache_dir) as dir:
+            logger.info(f"start downloading meta file")
+            if params.get('incl_meta'):
+                for url in meta_file_urls:
+                    all_files.append(str(dir.download(url, meta_path, mkdir=True)))
+            logger.info(f"DL meta file : END !")
+                
+            logger.info(f"start downloading meta file")
+            logger.info(f"{len(argo_file_urls)} files to DL.. Start !")
+            c=1
+            for url in argo_file_urls:
+                logger.info(f"process file n° {c}/{len(argo_file_urls)}")
+                all_files.append(str(dir.download(url, profile_path, mkdir=True)))
+                c+=1
+            
+        logger.info(f" end downloads! youpi")
+        
     def execute(self, qn: QueryName, params: dict[str, Any] | None = None) -> Result:
         query = ArgoBroker._queries[qn]
         queryParams = params or {}
@@ -188,6 +275,8 @@ class ArgoBroker(Broker):
                 return Result(query, self._execute_argo_meta(queryParams))
             case 'urn:pokapok:udal:argo:data':
                 return Result(query, self._execute_argo_data(queryParams))
+            case 'urn:pokapok:udal:argo:files':
+                return Result(query, self._execute_argo_files(queryParams))
             case _:
                 if qn in QUERY_NAMES:
                     raise Exception(f'unsupported query name "{qn}"')

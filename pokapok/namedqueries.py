@@ -72,6 +72,7 @@ QueryName = Literal[
     'urn:pokapok:udal:argo:list',
     'urn:pokapok:udal:argo:meta',
     'urn:pokapok:udal:argo:data',
+    'urn:pokapok:udal:argo:files',
     'urn:pokapok:udal:woa23',
     ]
 
@@ -105,6 +106,19 @@ QUERY_REGISTRY : dict[QueryName, NamedQueryInfo] = {
                 TypedValue('float_type', 'FloatType|list[FloatType]|None'),
                 TypedValue('float', 'str'),
                 TypedValue('descending_cycles', 'bool'),
+            ],
+            [],
+        ),
+    'urn:pokapok:udal:argo:files': NamedQueryInfo(
+            'urn:pokapok:udal:argo:files',
+            [
+                TypedValue('dac', 'str'),
+                TypedValue('float_mode', 'FloatMode|list[FloatMode]|None'),
+                TypedValue('float_type', 'FloatType|list[FloatType]|None'),
+                TypedValue('float', 'str'),
+                TypedValue('descending_cycles', 'bool'),
+                TypedValue('incl_meta', 'bool'),
+                TypedValue('bypass_out_arch_building', 'bool'),
             ],
             [],
         ),

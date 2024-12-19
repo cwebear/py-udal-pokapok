@@ -3,9 +3,11 @@ from pathlib import Path
 import shutil
 import tempfile
 from urllib.parse import urlparse
-
 import requests
+import logging
 
+# Get the logger for the library (it will use the root logger by default)
+logger = logging.getLogger("qcv_ingester_log")
 
 TEMP_DIR_PREFIX = 'pokapok-udal-'
 
@@ -40,12 +42,7 @@ class Directory():
         if self._tmp_dir is not None:
             shutil.rmtree(self._tmp_dir)
 
-    def download(self,
-            url: str,
-            path: str | Path,
-            mkdir: bool | None = None,
-            filename: str | None = None
-            ):
+    def download(self, url: str, path: str|Path, mkdir: bool|None = None, filename: str|None = None):
         """
         Download a file to the cache directory.
 
@@ -54,7 +51,7 @@ class Directory():
             path: Path within the cache directory where to download the file to.
             mkdir: If provided and `True`, build the required parent directories for the downloaded file.
             filename: Name for the downloaded file. Defaults to the name in the URL if not provided.
-        """
+        """        
         dir = self._path or self._tmp_dir
         if dir is None:
             raise Exception('no directory to save download')
@@ -62,14 +59,33 @@ class Directory():
         if filename is None:
             filename = Path(urlparse(url).path).name
         file_path = dir.joinpath(filename)
-        if os.path.exists(file_path):
-            return file_path
-        else:
-            response = requests.get(url, stream=True)
-            response.raise_for_status()
-            if mkdir:
-                os.makedirs(Path(file_path).parent.resolve(), exist_ok=True)
+
+        # Start the download and compare the local file size during the request
+        with requests.get(url, stream=True) as response:
+            try:
+                response.raise_for_status()
+            except:
+                msg = f"{url} : url not found, consider verify 'dac' and 'cpn' arguments. dac can be set to None if unknown"
+                logger.error(msg)
+                raise ValueError(msg)
+            
+            remote_file_size = int(response.headers.get('Content-Length', 0))
+
+            if file_path.exists():
+                local_file_size = file_path.stat().st_size
+
+                # If sizes match, assume the file is already fully downloaded
+                if local_file_size == remote_file_size:
+                    logger.info(f"{os.path.basename(path)} already dl, skip")
+                    return file_path
+
+                # Otherwise, delete the incomplete file
+                file_path.unlink()
+
+            # Download the file
             with open(file_path, 'wb') as file:
                 for chunk in response.iter_content(chunk_size=1024):
-                    file.write(chunk)
-            return file_path
+                    if chunk:
+                        file.write(chunk)
+
+        return file_path

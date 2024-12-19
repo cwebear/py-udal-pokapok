@@ -4,6 +4,10 @@ from .config import Config
 from .namedqueries import QueryName
 from .result import Result
 
+import logging
+# Get the logger for the library (it will use the root logger by default)
+logger = logging.getLogger(__name__)
+logger.propagate = True
 
 class UDAL():
     """Uniform Data Access Layer"""
