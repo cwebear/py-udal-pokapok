@@ -5,6 +5,7 @@ import tempfile
 from urllib.parse import urlparse
 import requests
 import logging
+from time import time
 
 # Get the logger for the library (it will use the root logger by default)
 logger = logging.getLogger("qcv_ingester_log")
@@ -62,13 +63,7 @@ class Directory():
 
         # Start the download and compare the local file size during the request
         with requests.get(url, stream=True) as response:
-            try:
-                response.raise_for_status()
-            except:
-                msg = f"{url} : url not found, consider verify 'dac' and 'cpn' arguments. dac can be set to None if unknown"
-                logger.error(msg)
-                raise ValueError(msg)
-            
+            response.raise_for_status()
             remote_file_size = int(response.headers.get('Content-Length', 0))
 
             if file_path.exists():
@@ -87,5 +82,8 @@ class Directory():
                 for chunk in response.iter_content(chunk_size=1024):
                     if chunk:
                         file.write(chunk)
+                    
+
+        
 
         return file_path

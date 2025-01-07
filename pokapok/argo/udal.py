@@ -5,6 +5,7 @@ from bs4 import BeautifulSoup
 import re
 import requests
 import xarray
+import time
 
 from ..broker import Broker
 from ..cache import Directory
@@ -160,6 +161,33 @@ class ArgoBroker(Broker):
                 argo_files.append(f)
         return argo_files
 
+    def _try_to_dl_data(dl_line, **kwargs):
+        all_files = kwargs.get(all_files) 
+        url = kwargs.get(url) 
+        path = kwargs.get(path)
+        retries = 3
+        for attempt in range(retries):
+            try:
+                logger.info(f"Attempt {attempt + 1} for file: {url}")
+                all_files.append(str(dl_line))
+                logger.info(f"Successfully downloaded: {url}")
+                c+=1
+                break  # Break out of the retry loop if successful
+            
+            except requests.exceptions.RequestException as req_err:
+                logger.error(f"Attempt {attempt + 1} failed for {url} - Error: {req_err}")
+                if attempt < retries - 1:
+                    # If not the last attempt, retry after a brief pause
+                    logger.info(f"Retrying in 40 seconds... (Attempt {attempt + 2}/{retries})")
+                    time.sleep(40)
+                else:
+                    # If the final attempt fails, log the failure
+                    logger.error(f"Failed to download {url} after {retries} attempts.")
+                    pass
+            except Exception as e:
+                # Catch any other unforeseen errors
+                logger.error(f"Unexpected error occurred for {url}: {e}")
+                pass
     def _execute_argo_meta(self, params: dict[str, Any]):
         dac = params.get('dac')
         if dac == None:
@@ -262,9 +290,30 @@ class ArgoBroker(Broker):
             c=1
             for url in argo_file_urls:
                 logger.info(f"process file n° {c}/{len(argo_file_urls)}")
-                all_files.append(str(dir.download(url, profile_path, mkdir=True)))
-                c+=1
-            
+                retries = 3
+                for attempt in range(retries):
+                    try:
+                        # logger.info(f"Attempt {attempt + 1} for file: {url}")
+                        all_files.append(str(dir.download(url, profile_path, mkdir=True)))
+                        # logger.info(f"Successfully downloaded: {url}")
+                        c+=1
+                        break  # Break out of the retry loop if successful
+                    
+                    except requests.exceptions.RequestException as req_err:
+                        logger.error(f"Attempt {attempt + 1} failed for {url} - Error: {req_err}")
+                        if attempt < retries - 1:
+                            # If not the last attempt, retry after a brief pause
+                            logger.info(f"Retrying in 2 seconds... (Attempt {attempt + 2}/{retries})")
+                            time.sleep(40)
+                        else:
+                            # If the final attempt fails, log the failure
+                            logger.error(f"Failed to download {url} after {retries} attempts.")
+                            pass
+                    except Exception as e:
+                        # Catch any other unforeseen errors
+                        logger.error(f"Unexpected error occurred for {url}: {e}")
+                        pass
+                    
         logger.info(f" end downloads! youpi")
         
     def execute(self, qn: QueryName, params: dict[str, Any] | None = None) -> Result:
