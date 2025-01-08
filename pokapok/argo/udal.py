@@ -289,7 +289,7 @@ class ArgoBroker(Broker):
             logger.info(f"{len(argo_file_urls)} files to DL.. Start !")
             c=1
             for url in argo_file_urls:
-                logger.info(f"process file n° {c}/{len(argo_file_urls)}")
+                logger.info(f"PROCESS file n° {c}/{len(argo_file_urls)}")
                 retries = 3
                 for attempt in range(retries):
                     try:
