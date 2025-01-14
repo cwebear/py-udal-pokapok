@@ -291,6 +291,7 @@ class ArgoBroker(Broker):
             for url in argo_file_urls:
                 logger.info(f"PROCESS file n° {c}/{len(argo_file_urls)}")
                 retries = 3
+                wait_s = 40
                 for attempt in range(retries):
                     try:
                         # logger.info(f"Attempt {attempt + 1} for file: {url}")
@@ -303,8 +304,8 @@ class ArgoBroker(Broker):
                         logger.error(f"Attempt {attempt + 1} failed for {url} - Error: {req_err}")
                         if attempt < retries - 1:
                             # If not the last attempt, retry after a brief pause
-                            logger.info(f"Retrying in 2 seconds... (Attempt {attempt + 2}/{retries})")
-                            time.sleep(40)
+                            logger.info(f"Retrying in {wait_s} seconds... (Attempt {attempt + 2}/{retries})")
+                            time.sleep(wait_s)
                         else:
                             # If the final attempt fails, log the failure
                             logger.error(f"Failed to download {url} after {retries} attempts.")
@@ -331,3 +332,14 @@ class ArgoBroker(Broker):
                     raise Exception(f'unsupported query name "{qn}"')
                 else:
                     raise Exception(f'unknown query name "{qn}"')
+
+    def test_argo_float_repo(self, params: dict[str, Any] | None = None) -> str:
+        float = params.get('float')
+        if float == None:
+            raise Exception('missing float argument')
+        try:
+            dac = self._find_the_dac(f"{self._url}/dac", float)
+        except:
+            return
+        url = self._argo_float_url(dac, float)
+        return url
