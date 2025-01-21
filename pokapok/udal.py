@@ -3,6 +3,7 @@ from .woa23.udal import WOA23Broker
 from .config import Config
 from .namedqueries import QueryName
 from .result import Result
+from typing import Any
 
 import logging
 # Get the logger for the library (it will use the root logger by default)
@@ -24,6 +25,9 @@ class UDAL():
     def execute(self, urn: QueryName, params: dict | None = None) -> Result:
         return self._broker.execute(urn, params)
 
+    def retreive_tstp(self, params: dict[str, Any]) -> Result:
+        return self._broker.retreive_tstp(params)
+        
     @property
     def query_names(self):
         return self._broker.queryNames

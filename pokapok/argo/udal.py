@@ -6,6 +6,8 @@ import re
 import requests
 import xarray
 import time
+import pandas as pd 
+import os
 
 from ..broker import Broker
 from ..cache import Directory
@@ -188,6 +190,7 @@ class ArgoBroker(Broker):
                 # Catch any other unforeseen errors
                 logger.error(f"Unexpected error occurred for {url}: {e}")
                 pass
+            
     def _execute_argo_meta(self, params: dict[str, Any]):
         dac = params.get('dac')
         if dac == None:
@@ -343,3 +346,45 @@ class ArgoBroker(Broker):
             return
         url = self._argo_float_url(dac, float)
         return url
+    
+    def retreive_tstp(self, params: dict[str, Any]) -> Result:
+                
+        # section = float mode
+        float_mode = params.get('float_mode')
+        
+        # section = float type
+        float_type = params.get('float_type')
+        
+        # section = float
+        float = params.get('float')
+        if float == None:
+            raise Exception('missing float argument')
+        
+        # section = dac
+        dac = params.get('dac')
+        
+        if dac :
+            pass
+        elif dac == "" or not dac:
+            dac = self._find_the_dac(f"{self._url}/dac", float)
+        else :
+            raise Exception('missing dac argument, impossible to get from server...')
+        
+        # section descending_cycles
+        descending_cycles = params.get('descending_cycles')
+        if descending_cycles == None:
+            descending_cycles = True
+            
+        argo_file_urls = self._filter_argo_float_files(float_mode, float_type, descending_cycles, self._file_urls(dac, float))
+        argo_files = []
+        [argo_files.append(os.path.basename(file)) for file in argo_file_urls]
+        
+        df_html = pd.read_html(f"{self._argo_float_url(dac, float)}/profiles")[0][["Name", "Last modified"]].dropna(axis=0)
+        
+        mask = df_html['Name'].isin(argo_files)
+        df_html = df_html[mask]
+        last_date = pd.to_datetime(df_html["Last modified"].max()).strftime("%Y%m%d")
+        
+        return last_date
+        
+        
