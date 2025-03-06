@@ -10,11 +10,12 @@ from ..cache import Directory
 from ..config import Config
 from ..namedqueries import NamedQueryInfo, QueryName, QUERY_NAMES, QUERY_REGISTRY
 from ..result import Result
-from .types import Decade, TimeRes, Variable
+from .types import Decade, TimeRes, Variable, SpatialRes
 
 
 localBrokerQueryNames: List[QueryName] = [
     'urn:pokapok:udal:woa23',
+    'urn:pokapok:udal:woa23:files',
 ]
 
 
@@ -51,6 +52,7 @@ class WOA23Broker(Broker):
         if variable is None:
             raise Exception('missing variable')
 
+
         # decade
         decade: Decade | None = params.get('decade')
         if decade is None:
@@ -68,22 +70,23 @@ class WOA23Broker(Broker):
         #  - 95A4 (only temperature, salinity)
         #  - A5B4 (only temperature, salinity)
         #  - B5C2 (only temperature, salinity)
-
+        
         # grid
         grid: int | None = params.get('grid')
         match grid:
             # TODO 0.25 for temperature and salinity
-            case 0.25:
+            case SpatialRes.quart_deg:
                 if variable not in [Variable.Temperature, Variable.Salinity]:
                     raise Exception('1/4 deg grid only supported for temperature and salinity')
                 file_grid_part = '04'
-            case 1:
+            case SpatialRes.one_deg:
                 file_grid_part = '01'
-            case 5:
+            case SpatialRes.five_deg:
                 file_grid_part = '5d'
             case _:
                 raise Exception('invalid grid size; supported values: 1, 5')
 
+        
         # longitude/latitude coordinates
         lon_min: float | None = params.get('lon_min')
         lon_max: float | None = params.get('lon_max')
@@ -99,14 +102,20 @@ class WOA23Broker(Broker):
             raise Exception('missing time_res')
 
         file_name = f'woa23_{decade.value}_{variable.short()}{time_res.value}_{file_grid_part}.nc'
-        url = f'https://www.ncei.noaa.gov/thredds-ocean/fileServer/woa23/DATA/{variable.value}/netcdf/{decade.value}/{grid:0.2f}/{file_name}'
+        url = f'https://www.ncei.noaa.gov/thredds-ocean/fileServer/woa23/DATA/{variable.value}/netcdf/{decade.value}/{grid.value:0.2f}/{file_name}'
 
         # It is important to create a sub-directory for each variable to avoid
         # conflicts in case-insensitive file systems.
         with Directory(self._config.cache_dir) as dir:
-            path = Path('woa23').joinpath(variable.value)
+
+            if params.get('bypass_out_arch_building'):       
+                path=""
+            else:
+                path = Path('woa23').joinpath(variable.value)
+
             file_path = dir.download(url, path, mkdir=True)
             dataset = xarray.open_dataset(file_path, decode_times=False)
+            
             if all(coords_are_none):
                 return dataset
             else:
@@ -119,6 +128,8 @@ class WOA23Broker(Broker):
         queryParams = params or {}
         match qn:
             case 'urn:pokapok:udal:woa23':
+                return Result(query, self._execute_woa(queryParams))
+            case 'urn:pokapok:udal:woa23:files':
                 return Result(query, self._execute_woa(queryParams))
             case _:
                 if qn in QUERY_NAMES:

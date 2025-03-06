@@ -74,6 +74,7 @@ QueryName = Literal[
     'urn:pokapok:udal:argo:data',
     'urn:pokapok:udal:argo:files',
     'urn:pokapok:udal:woa23',
+    'urn:pokapok:udal:woa23:files',
     ]
 
 
@@ -131,6 +132,16 @@ QUERY_REGISTRY : dict[QueryName, NamedQueryInfo] = {
                 TypedValue('lat_min', 'float'),
                 TypedValue('lon_max', 'float'),
                 TypedValue('lon_min', 'float'),
+                TypedValue('time_res', 'TimeRes'),
+                TypedValue('variable', 'Variable'),
+            ],
+            [],
+        ),
+    'urn:pokapok:udal:woa23:files': NamedQueryInfo(
+            'urn:pokapok:udal:woa23:files',
+            [
+                TypedValue('decade', 'Decade'),
+                TypedValue('grid', 'float'),
                 TypedValue('time_res', 'TimeRes'),
                 TypedValue('variable', 'Variable'),
             ],
