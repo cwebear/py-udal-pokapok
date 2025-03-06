@@ -27,6 +27,9 @@ class Decade(Enum):
     DECADE_B5C2 = 'B5C2'
     '''2015-2022 years'''
 
+    def __str__(self):
+        return f"{self.value}"  
+
 
 class TimeRes(Enum):
     Annual = '00'
@@ -47,6 +50,17 @@ class TimeRes(Enum):
     Summer = '15'
     Autumn = '16'
 
+    def __str__(self):
+        return f"{self.value}"  
+
+
+class SpatialRes(Enum):
+    quart_deg = 0.25
+    one_deg = 1
+    five_deg = 5
+
+    def __str__(self):
+        return f"{self.value}"  
 
 class Variable(Enum):
     Temperature = 'temperature'
@@ -84,3 +98,6 @@ class Variable(Enum):
                 return 'p'
             case Variable.Nitrate:
                 return 'n'
+
+    def __str__(self):
+        return f"{self.value}"  

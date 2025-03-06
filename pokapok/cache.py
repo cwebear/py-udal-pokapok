@@ -61,6 +61,8 @@ class Directory():
             filename = Path(urlparse(url).path).name
         file_path = dir.joinpath(filename)
 
+        # print(f"file_path = {file_path}")
+
         # Start the download and compare the local file size during the request
         with requests.get(url, stream=True) as response:
             response.raise_for_status()
